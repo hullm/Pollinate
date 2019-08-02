@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>autoremove</key>
+	<false/>
+	<key>catalogs</key>
+	<array>
+		<string>desktops</string>
+	</array>
+	<key>category</key>
+	<string>Utility</string>
+	<key>description</key>
+	<string>Setup a new computer.</string>
+	<key>developer</key>
+	<string>Matthew Hull</string>
+	<key>display_name</key>
+	<string>Computer Setup</string>
+	<key>icon_name</key>
+	<string>Settings.png</string>
+	<key>installcheck_script</key>
+	<string>#!/bin/bash
+
+# Set the variables
+timeServer="time.apple.com"
+domainName="domain.com"
+computerOU="CN=Computers,DC=domain,DC=com"
+adminUser="username"
+adminPass="password"
+domainAdmin="username@domain.com"
+domainPass="password"
+
+# Check and see if the computerName file exists, if so set some settings
+if (test -e "/Users/Shared/computerName.txt"); then
+	newComputerName="$(cat /Users/Shared/computerName.txt)"
+
+	# Change the computer name
+	if [[ "${newComputerName}" != "" ]]; then
+		scutil --set HostName $newComputerName
+		scutil --set LocalHostName $newComputerName
+		scutil --set ComputerName $newComputerName
+		rm /Users/Shared/computerName.txt
+		echo "Computer renamed"
+
+		# Join comptuer to the domain
+		echo y | dsconfigad -a ${newComputerName:0:15} -u $domainAdmin -p $domainPass -ou $computerOU -domain $domainName -mobile enable -mobileconfirm disable -localhome enable -useuncpath enable -group "Domain Admins,Enterprise Admins" -alldomain enable
+
+	fi
+
+	# Enable remote desktop
+	/System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart -activate -configure -allowAccessFor -allUsers -privs -ControlObserve -GenerateReports -OpenQuitApps -ChangeSettings -DeleteFiles -TextMessages -RestartShutDown -SendFiles -clientopts -setmenuextra -menuextra no
+
+	# Disable some startup items
+	for USER_TEMPLATE in \"/System/Library/User Template\"/*; do
+		defaults write \"${USER_TEMPLATE}\"/Library/Preferences/com.apple.SetupAssistant DidSeeCloudSetup -bool TRUE
+		defaults write \"${USER_TEMPLATE}\"/Library/Preferences/com.apple.SetupAssistant GestureMovieSeen none
+		defaults write \"${USER_TEMPLATE}\"/Library/Preferences/com.apple.SetupAssistant LastSeenCloudProductVersion \"${sw_vers}\"
+	done
+
+	# Make the diagnostics data folder
+	if [ ! -d "/Library/Application Support/CrashReporter" ]; then
+		mkdir "/Library/Application Support/CrashReporter"
+    	chmod 775 "/Library/Application Support/CrashReporter"
+    	chown root:$adminUser "/Library/Application Support/CrashReporter"
+	fi
+
+	# Send Diagnostic data to both apple and developers
+	defaults write /Library/Application\ Support/CrashReporter/DiagnosticMessagesHistory AutoSubmit -boolean TRUE
+	defaults write /Library/Application\ Support/CrashReporter/DiagnosticMessagesHistory AutoSubmitVersion -int 5
+	defaults write /Library/Application\ Support/CrashReporter/DiagnosticMessagesHistory ThirdPartyDataSubmit -boolean TRUE
+	defaults write /Library/Application\ Support/CrashReporter/DiagnosticMessagesHistory ThirdPartyDataSubmitVersion -int 5
+	chmod a+r "/Library/Application Support/CrashReporter/DiagnosticMessagesHistory.plist"
+ 	chown root:$adminUser "/Library/Application Support/CrashReporter/DiagnosticMessagesHistory.plist"
+
+	# Set the time zone
+	systemsetup -settimezone America/New_York
+	
+	# Disable using the location to set the timezone 
+	defaults write /Library/Preferences/com.apple.timezone.auto Active -bool false
+
+	# Set sleep settings
+	isLaptop=`/usr/sbin/system_profiler SPHardwareDataType | grep "Model Identifier" | grep "Book"`
+
+	if [ "$isLaptop" != "" ]; then
+		pmset -b sleep 60 disksleep 30 displaysleep 30 halfdim 1
+		pmset -c sleep 0 disksleep 0 displaysleep 30 halfdim 1
+	else	
+		pmset sleep 0 disksleep 0 displaysleep 30 halfdim 1
+	fi
+
+fi
+
+# Create the admin account if needed
+if !(test -e "/Users/$adminUser"); then
+	sysadminctl -addUser admin
+	dscl . -passwd /Users/$adminUser $adminPass
+	dscl . -append /Groups/$adminUser GroupMembership admin
+	dscl . -create /Users/$adminUser RealName "Admin"
+	dscl . -create /Users/$adminUser Picture "/Library/User Pictures/Nature/Lightning.tif"
+fi
+
+
+	exit 1
+	</string>
+	<key>installer_type</key>
+	<string>nopkg</string>
+	<key>minimum_os_version</key>
+	<string>10.8.0</string>
+	<key>name</key>
+	<string>Computer Setup</string>
+	<key>postinstall_script</key>
+	<string></string>
+	<key>unattended_install</key>
+	<true/>
+	<key>uninstall_method</key>
+	<string>uninstall_script</string>
+	<key>uninstall_script</key>
+	<string></string>
+	<key>uninstallable</key>
+	<true/>
+	<key>version</key>
+	<string>1.0</string>
+</dict>
+</plist>
