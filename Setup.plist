@@ -17,7 +17,7 @@
 	<key>display_name</key>
 	<string>Computer Setup</string>
 	<key>icon_name</key>
-	<string>Settings.png</string>
+	<string>Setup.png</string>
 	<key>installcheck_script</key>
 	<string>#!/bin/bash
 
